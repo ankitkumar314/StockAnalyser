@@ -1,5 +1,12 @@
 from fastapi import HTTPException
-from app.models.agent import PDFIngestRequest, PDFIngestResponse, QueryRequest, QueryResponse, BatchQuestionRequest, BatchQuestionResponse, QuestionAnswer
+from app.models.agent import (
+    PDFIngestRequest, PDFIngestResponse, QueryRequest, QueryResponse, 
+    BatchQuestionRequest, BatchQuestionResponse, QuestionAnswer,
+    BatchJobResponse, BatchJobStatusResponse, JobStatus
+)
+import uuid
+from datetime import datetime
+import threading
 from app.agenticAI.vectorDB.main import VectorDBManager
 from app.agenticAI.llm_Model import LLMFactory
 from app.agenticAI.Agents.plannerAgent import PlannerAgent
@@ -17,6 +24,7 @@ class AgentController:
     def __init__(self):
         try:
             self.vector_db_manager = VectorDBManager()
+            self.batch_jobs = {}
         except Exception as e:
             raise Exception(f"Error initializing AgentController: {str(e)}")
     
@@ -136,13 +144,16 @@ class AgentController:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error generating graph: {str(e)}")
     
-    def batch_evaluate(self, request: BatchQuestionRequest) -> BatchQuestionResponse:
+    def _run_batch_evaluation(self, job_id: str, request: BatchQuestionRequest):
+        """
+        Internal method to run batch evaluation in background.
+        Updates job status in self.batch_jobs.
+        """
         try:
-            if request is None:
-                raise HTTPException(status_code=400, detail="Request cannot be None")
+            self.batch_jobs[job_id]["status"] = JobStatus.PROCESSING
             
-            if request.doc_id is None or request.doc_id.strip() == "":
-                raise HTTPException(status_code=400, detail="Document ID cannot be empty")
+            if request is None or request.doc_id is None or request.doc_id.strip() == "":
+                raise ValueError("Invalid request or doc_id")
             
             STATIC_QUESTIONS = [
                 "What are the key business performance highlights discussed in the call, including growth trends, revenue drivers, profitability, and any major changes compared to previous periods?",
@@ -176,8 +187,10 @@ class AgentController:
             graph = RAGGraph(planner, retriever, answerer, evaluator).compile()
             
             results = []
+            total_questions = len(STATIC_QUESTIONS)
             
             for idx, question in enumerate(STATIC_QUESTIONS):
+                self.batch_jobs[job_id]["progress"] = f"Processing question {idx + 1}/{total_questions}"
                 try:
                     langsmith_run_config = langsmith_config.get_run_config(
                         run_name=f"batch-q{idx+1}-{request.doc_id[:8]}",
@@ -224,14 +237,112 @@ class AgentController:
                 results=results
             )
             
-            return response
+            self.batch_jobs[job_id]["status"] = JobStatus.COMPLETED
+            self.batch_jobs[job_id]["result"] = response
+            self.batch_jobs[job_id]["completed_at"] = datetime.utcnow().isoformat()
             
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            logger.info(f"Batch job {job_id} completed successfully")
+            
+        except Exception as e:
+            logger.error(f"Error in batch job {job_id}: {str(e)}")
+            self.batch_jobs[job_id]["status"] = JobStatus.FAILED
+            self.batch_jobs[job_id]["error"] = str(e)
+            self.batch_jobs[job_id]["completed_at"] = datetime.utcnow().isoformat()
+    
+    def batch_evaluate_async(self, request: BatchQuestionRequest) -> BatchJobResponse:
+        """
+        Start batch evaluation as a background job.
+        Returns immediately with job_id for status tracking.
+        """
+        try:
+            if request is None:
+                raise HTTPException(status_code=400, detail="Request cannot be None")
+            
+            if request.doc_id is None or request.doc_id.strip() == "":
+                raise HTTPException(status_code=400, detail="Document ID cannot be empty")
+            
+            vectorstore = self.vector_db_manager.load_vector_store(request.doc_id)
+            if vectorstore is None:
+                raise HTTPException(status_code=404, detail=f"Vector store not found for doc_id: {request.doc_id}")
+            
+            job_id = str(uuid.uuid4())
+            created_at = datetime.utcnow().isoformat()
+            
+            self.batch_jobs[job_id] = {
+                "status": JobStatus.PENDING,
+                "doc_id": request.doc_id,
+                "created_at": created_at,
+                "progress": "Job queued",
+                "result": None,
+                "error": None,
+                "completed_at": None
+            }
+            
+            thread = threading.Thread(
+                target=self._run_batch_evaluation,
+                args=(job_id, request),
+                daemon=True
+            )
+            thread.start()
+            
+            logger.info(f"Started batch job {job_id} for doc_id: {request.doc_id}")
+            
+            return BatchJobResponse(
+                job_id=job_id,
+                status=JobStatus.PENDING,
+                doc_id=request.doc_id,
+                message="Batch evaluation started. Use job_id to check status.",
+                created_at=created_at
+            )
+            
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error in batch evaluation: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error starting batch evaluation: {str(e)}")
+    
+    def get_batch_job_status(self, job_id: str) -> BatchJobStatusResponse:
+        """
+        Get the status of a batch evaluation job.
+        """
+        try:
+            if job_id not in self.batch_jobs:
+                raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+            
+            job = self.batch_jobs[job_id]
+            
+            return BatchJobStatusResponse(
+                job_id=job_id,
+                status=job["status"],
+                doc_id=job["doc_id"],
+                progress=job.get("progress"),
+                result=job.get("result"),
+                error=job.get("error"),
+                created_at=job["created_at"],
+                completed_at=job.get("completed_at")
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error getting job status: {str(e)}")
+    
+    def list_batch_jobs(self):
+        """
+        List all batch jobs.
+        """
+        try:
+            jobs = []
+            for job_id, job_data in self.batch_jobs.items():
+                jobs.append({
+                    "job_id": job_id,
+                    "status": job_data["status"],
+                    "doc_id": job_data["doc_id"],
+                    "created_at": job_data["created_at"],
+                    "completed_at": job_data.get("completed_at")
+                })
+            return {"total_jobs": len(jobs), "jobs": jobs}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error listing jobs: {str(e)}")
     
     def get_cost_summary(self):
         """
