@@ -33,11 +33,11 @@ class RetrieverAgent:
             Dictionary with k and fetch_k parameters
         """
         if iteration_count == 0:
-            return {"k": 5, "fetch_k": 20}
+            return {"k": 8, "fetch_k": 20}
         elif iteration_count == 1:
-            return {"k": 7, "fetch_k": 30}
+            return {"k": 10, "fetch_k": 30}
         else:
-            return {"k": 10, "fetch_k": 40}
+            return {"k": 12, "fetch_k": 40}
 
     def _assess_document_quality(self, docs: List[Any], query: str) -> Dict[str, Any]:
         """
