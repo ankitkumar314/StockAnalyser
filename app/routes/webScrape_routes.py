@@ -16,12 +16,7 @@ scrape_controller = WebScrapeController(scrape_service)
 @router.post("/get-financial-data")
 def scrape_data(request: WebScrapeRequest):
     try:
-        url = request.url
-
-        service = ScraperService(url)
-        result = service.scrape()
-
-        return result
+        return scrape_controller.scrape_for_financial_data(request.ticker)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

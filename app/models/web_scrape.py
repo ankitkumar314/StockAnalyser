@@ -5,6 +5,7 @@ from datetime import datetime
 
 class WebScrapeRequest(BaseModel):
     url: str
+    ticker: str
 
 
 class WebScrapeData(BaseModel):

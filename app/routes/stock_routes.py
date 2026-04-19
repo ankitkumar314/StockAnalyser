@@ -9,7 +9,7 @@ router = APIRouter(prefix="/stocks", tags=["stocks"])
 
 stock_repository = StockRepository()
 stock_service = StockService(stock_repository)
-stock_controller = StockController(stock_service)
+stock_controller = StockController()
 
 
 @router.post("/addStock", response_model=StockResponse, status_code=201)
@@ -30,8 +30,3 @@ def get_stock(ticker: str):
 @router.put("/{stock_id}", response_model=StockResponse)
 def update_stock(stock_id: int, request: StockUpdateRequest):
     return stock_controller.update_stock_db(stock_id, request)
-
-
-@router.delete("/{stock_id}")
-def delete_stock(stock_id: int):
-    return stock_controller.delete_stock(stock_id)
