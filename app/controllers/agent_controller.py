@@ -145,12 +145,11 @@ class AgentController:
                 raise HTTPException(status_code=400, detail="Document ID cannot be empty")
             
             STATIC_QUESTIONS = [
-                "What is the main topic or subject of this document?",
-                "What are the key findings or conclusions presented?",
-                "Who are the primary stakeholders or entities mentioned?",
-                "What is the time period or date range covered in this document?",
-                "What are the main recommendations or action items?",
-                "What data or evidence supports the main claims?"
+                "What are the key business performance highlights discussed in the call, including growth trends, revenue drivers, profitability, and any major changes compared to previous periods?",
+                "What are the most important insights and takeaways from management commentary, including strategic priorities, operational improvements, and key drivers of performance?",
+                "What is the company’s future outlook as discussed in the call, including growth expectations, expansion plans, new initiatives, and key growth drivers?",
+                "What risks, challenges, or uncertainties did management highlight, including market conditions, cost pressures, regulatory risks, or operational constraints?",
+                "What major announcements, strategic initiatives, or upcoming catalysts were discussed that could significantly impact the company’s future performance?",
             ]
             
             vectorstore = self.vector_db_manager.load_vector_store(request.doc_id)
