@@ -34,9 +34,3 @@ def get_all_scrapes() -> Dict[str, WebScrapeData]:
 @router.get("/{url:path}")
 def get_scrape_by_url(url: str) -> WebScrapeData:
     return scrape_controller.get_scrape_by_url(url)
-
-
-@router.delete("/{url:path}")
-def delete_scrape(url: str) -> Dict[str, str]:
-    return scrape_controller.delete_scrape(url)
-

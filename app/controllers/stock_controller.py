@@ -1,7 +1,6 @@
 from typing import Dict, Optional
 from fastapi import HTTPException
 from app.models.stock import Stock, StockListResponse, StockUpdateRequest, StockResponse
-from app.services.stock_service import StockService
 from app.database.connection import DatabaseConnection
 from app.database.repositories import StockRepository as DBStockRepository
 import logging
@@ -10,41 +9,13 @@ logger = logging.getLogger(__name__)
 
 
 class StockController:
-    def __init__(self, service: StockService):
-        self.service = service
+    def __init__(self):
         self.db_enabled = DatabaseConnection.is_enabled()
         if self.db_enabled:
             logger.info("Stock controller: Database persistence enabled")
         else:
             logger.info("Stock controller: Using in-memory storage")
     
-    def get_stock_by_id(self, stock_id: int) -> Stock:
-        try:
-            if stock_id is None:
-                raise HTTPException(status_code=400, detail="Stock ID cannot be None")
-            stock = self.service.get_stock_by_id(stock_id)
-            if stock is None:
-                raise HTTPException(status_code=404, detail="Stock not found")
-            return stock
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    
-    
-    def delete_stock(self, stock_id: int) -> Dict[str, str]:
-        try:
-            if stock_id is None:
-                raise HTTPException(status_code=400, detail="Stock ID cannot be None")
-            deleted = self.service.delete_stock(stock_id)
-            if not deleted:
-                raise HTTPException(status_code=404, detail="Stock not found")
-            return {"message": "Deleted successfully"}
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
     
     def create_stock_db(self, request: Stock) -> StockResponse:
         """Create stock in database."""
