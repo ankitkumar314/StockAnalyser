@@ -16,8 +16,7 @@ class ScraperService:
         response.raise_for_status()
         return response.text
 
-    def parse_all_financial_tables(self, html: str) -> dict:
-        soup = BeautifulSoup(html, "html.parser")
+    def parse_all_financial_tables(self, soup) -> dict:
         output = {}
 
         sections = soup.find_all("section", id=True)
@@ -96,14 +95,60 @@ class ScraperService:
                     "yoy": calculate_growth(net_profit, 4),
                 }
             }
+    
+    def parse_concalls(self, soup) -> dict:
+        result = {}
+
+        concall_section = soup.select_one("div.documents.concalls")
+        if not concall_section:
+            return result
+
+        items = concall_section.select("ul.list-links li")
+
+        for item in items:
+            # 🗓️ Date (more precise)
+            date_div = item.find("div", class_="ink-600")
+            if not date_div:
+                continue
+
+            date = date_div.get_text(strip=True)
+
+            doc_data = {}
+
+            # 🔗 All possible elements
+            elements = item.select(".concall-link")
+
+            for el in elements:
+                text = el.get_text(strip=True).lower()
+
+                url = el.get("href") if el.name == "a" else None
+
+                if "ppt" in text and url:
+                    doc_data["ppt"] = url
+                elif "transcript" in text and url:
+                    doc_data["transcript"] = url
+                elif "rec" in text and url:
+                    doc_data["rec"] = url
+
+            if doc_data:
+                if date not in result:
+                    result[date] = []
+
+                result[date].append(doc_data)
+
+        return result
+
 
     def scrape(self) -> dict:
         html = self.fetch_html()
-        financial_data = self.parse_all_financial_tables(html)
+        soup = BeautifulSoup(html, "html.parser")
+        financial_data = self.parse_all_financial_tables(soup)
         growth_data = self.calculate_financial_growth(financial_data)
+        concall_data = self.parse_concalls(soup)
 
         return {
             "success": True,
             "data": financial_data,
             "growth": growth_data,
+            "concalls": concall_data,
         }
