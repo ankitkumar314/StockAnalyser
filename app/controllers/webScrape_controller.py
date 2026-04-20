@@ -12,36 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 class WebScrapeController:
-    def __init__(self, service: WebScrapeService):
-        self.service = service
+    def __init__(self):
         self.stock_controller = StockController()
 
-    
-    def scrape_url(self, request: WebScrapeRequest) -> WebScrapeData:
-        try:
-            if request is None:
-                raise HTTPException(status_code=400, detail="Request cannot be None")
-            if request.url is None or request.url.strip() == "":
-                raise HTTPException(status_code=400, detail="URL cannot be empty")
-            
-            return self.service.scrape_url(request)
-            
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
     def get_all_scrapes(self) -> Dict[str, WebScrapeData]:
-        try:
-            if self.service.repository is None:
-                raise HTTPException(status_code=501, detail="Repository not configured")
-            return self.service.repository.get_all()
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        return {}
     
     def get_scrape_by_ticker(self, ticker: str) -> StockScrapeDataResponse:
         try:
