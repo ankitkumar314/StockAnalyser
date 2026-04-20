@@ -1,22 +1,31 @@
-# 📊 Stock Analyser - AI-Powered Earnings Call Analysis System
+# 📊 Stock Analyser - AI-Powered Financial Analysis & Data Platform
 
-An intelligent RAG (Retrieval-Augmented Generation) system built with FastAPI and LangGraph for analyzing quarterly/half-yearly earnings call transcripts. The system uses a multi-agent architecture to extract actionable insights from financial documents, providing management guidance, sentiment analysis, and business performance commentary.
+A comprehensive financial analysis platform combining AI-powered earnings call analysis with automated stock data scraping and persistence. Built with FastAPI, LangGraph, and PostgreSQL, the system provides intelligent insights from earnings transcripts while maintaining a robust database of financial metrics and quarterly results.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-green.svg)](https://fastapi.tiangolo.com/)
 [![LangChain](https://img.shields.io/badge/LangChain-0.3.7-orange.svg)](https://www.langchain.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2.45-red.svg)](https://langchain-ai.github.io/langgraph/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue.svg)](https://www.postgresql.org/)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-red.svg)](https://www.sqlalchemy.org/)
 
 ## 🎯 Key Features
 
+### AI-Powered Analysis
 - **🤖 Multi-Agent RAG System**: Specialized agents for planning, retrieval, answering, and evaluation
 - **📄 PDF Ingestion**: Automated processing of earnings call transcripts (20-30+ pages)
 - **💡 Insight Extraction**: Extracts management guidance, sentiment, and strategic commentary
 - **🔍 Semantic Search**: FAISS vector store with HuggingFace embeddings for precise retrieval
 - **💰 Cost Tracking**: Real-time LLM cost monitoring and prediction
 - **📊 LangSmith Integration**: Full observability and tracing for debugging
-- **🌐 Web Scraping**: Financial data extraction from company websites
-- **⚡ Async Processing**: High-performance FastAPI backend
+
+### Stock Data Management
+- **🗄️ PostgreSQL Persistence**: Robust database storage for stock and financial data
+- **🌐 Automated Web Scraping**: Real-time financial data extraction from screener websites
+- **📈 Quarterly Data Tracking**: Smart quarter-based data storage with automatic updates
+- **🔄 Duplicate Prevention**: Intelligent upsert logic - updates existing quarter data instead of creating duplicates
+- **📊 Financial Metrics Storage**: JSONB columns for flexible storage of quarter results, growth metrics, and P&L data
+- **⚡ Repository Pattern**: Clean separation of concerns with service and repository layers
 
 ## 🏗️ Architecture
 
@@ -83,20 +92,28 @@ pythonCrud/
 │   │   └── states.py                # Graph state definitions
 │   ├── controllers/            # Business logic layer
 │   │   ├── agent_controller.py      # RAG system endpoints
-│   │   ├── stock_controller.py      # Stock data management
-│   │   └── webScrape_controller.py  # Web scraping logic
+│   │   ├── stock_controller.py      # Stock CRUD operations
+│   │   └── webScrape_controller.py  # Web scraping & data persistence
+│   ├── database/               # Database layer (NEW)
+│   │   ├── connection.py            # PostgreSQL connection manager
+│   │   ├── models.py                # SQLAlchemy ORM models
+│   │   ├── Stock_repository.py      # Stock data repository
+│   │   └── stock_scrap_data_repository.py  # Financial data repository
 │   ├── models/                 # Pydantic models
 │   │   ├── agent.py                 # RAG request/response models
 │   │   ├── stock.py                 # Stock data models
+│   │   ├── stock_db.py              # Stock database models
+│   │   ├── stock_scrape.py          # Stock scrape response models
 │   │   └── web_scrape.py            # Scraping models
 │   ├── routes/                 # API endpoints
 │   │   ├── agent_routes.py          # /agent/* endpoints
-│   │   ├── stock_routes.py          # /stock/* endpoints
+│   │   ├── stock_routes.py          # /stocks/* endpoints
 │   │   └── webScrape_routes.py      # /scrape/* endpoints
 │   ├── services/               # Service layer
 │   │   ├── webScrape_service.py     # Web scraping service
-│   │   └── Scraper_service.py       # Financial data scraper
-│   └── repositories/           # Data access layer
+│   │   ├── Scraper_service.py       # Financial data scraper
+│   │   └── stock_scrape_data_service.py  # Stock data persistence service
+│   └── repositories/           # Legacy data access layer
 ├── vectorstores/               # Persisted FAISS indexes
 ├── downloads/                  # Downloaded PDFs
 ├── static/                     # Graph visualizations
@@ -111,6 +128,7 @@ pythonCrud/
 ### Prerequisites
 
 - Python 3.11+
+- PostgreSQL 14+ (for stock data persistence)
 - DeepSeek API Key (or OpenAI-compatible LLM)
 - LangSmith API Key (optional, for tracing)
 
@@ -139,6 +157,9 @@ pip install -r requirements.txt
 Create a `.env` file in the root directory:
 
 ```env
+# Required: Database Connection
+DATABASE_URL=postgresql://username:password@localhost:5432/stockanalyser
+
 # Required: LLM API Key
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
 OPENAI_API_KEY=your_deepseek_api_key_here  # DeepSeek uses OpenAI-compatible API
@@ -231,19 +252,115 @@ GET /agent/graph-visualization
 
 Generates a visual representation of the RAG workflow.
 
+### Stock Management Endpoints (`/stocks`)
+
+#### 1. Create Stock
+```bash
+POST /stocks/db
+```
+
+**Request:**
+```json
+{
+  "stock_name": "Reliance Industries",
+  "ticker": "RELIANCE",
+  "screener_link": "https://www.screener.in/company/RELIANCE/",
+  "market_size": "Large Cap",
+  "last_stock_price": 2450
+}
+```
+
+**Response:**
+```json
+{
+  "stock_name": "Reliance Industries",
+  "ticker": "RELIANCE",
+  "screener_link": "https://www.screener.in/company/RELIANCE/",
+  "market_size": "Large Cap",
+  "last_stock_price": 2450,
+  "created_at": "2026-04-20T10:15:30",
+  "update_at": "2026-04-20T10:15:30"
+}
+```
+
+#### 2. Get Stock by Ticker
+```bash
+GET /stocks/db/ticker/{ticker}
+```
+
+#### 3. Get All Stocks
+```bash
+GET /stocks/db?limit=50&offset=0
+```
+
+#### 4. Update Stock
+```bash
+PUT /stocks/db/{stock_id}
+```
+
+#### 5. Delete Stock
+```bash
+DELETE /stocks/db/{stock_id}
+```
+
 ### Web Scraping Endpoints (`/scrape`)
 
+#### 1. Scrape Financial Data
 ```bash
 POST /scrape/get-financial-data
-POST /scrape
-GET /scrape
-GET /scrape/{url:path}
-DELETE /scrape/{url:path}
+```
+
+**Request:**
+```json
+{
+  "ticker": "RELIANCE"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "quarters": {...},
+    "profit-loss": {...},
+    "shareholding": {...}
+  },
+  "growth": {
+    "sales": {...},
+    "net_profit": {...},
+    "operating_profit": {...}
+  }
+}
+```
+
+**Note:** This endpoint automatically:
+- Scrapes financial data from the stock's screener link
+- Stores/updates data in the `stock_scrape_data` table
+- Uses quarter-based deduplication (updates existing quarter data)
+
+#### 2. Get Latest Scraped Data
+```bash
+GET /scrape/{ticker}
+```
+
+**Response:**
+```json
+{
+  "quarter_result": {...},
+  "growth_sales": {...},
+  "growth_net_profit": {...},
+  "growth_operating_profit": {...},
+  "shareholding_pattern": {...},
+  "profit_loss": {...},
+  "quarter_date": "2026-09-30",
+  "created_at": "2026-04-20T10:15:30"
+}
 ```
 
 ## 🧠 How It Works
 
-### 1. Document Ingestion
+### 1. Document Ingestion (RAG System)
 
 ```python
 # PDF is downloaded and processed
@@ -255,7 +372,7 @@ DELETE /scrape/{url:path}
 6. Return unique doc_id
 ```
 
-### 2. Query Processing
+### 2. Query Processing (RAG System)
 
 ```python
 # Multi-agent workflow
@@ -278,7 +395,29 @@ DELETE /scrape/{url:path}
 5. Loop if needed (max 3 iterations)
 ```
 
-### 3. Specialized for Earnings Calls
+### 3. Stock Data Management Workflow
+
+```python
+# Automated financial data scraping and persistence
+1. Create Stock Entry
+   POST /stocks/db → Store stock metadata in PostgreSQL
+   
+2. Scrape Financial Data
+   POST /scrape/get-financial-data?ticker=RELIANCE
+   ├─ Fetch data from screener.in
+   ├─ Extract quarter results, growth metrics, P&L
+   └─ Calculate current quarter (Q1-Q4) from date
+   
+3. Smart Persistence (Upsert Logic)
+   ├─ Check if data exists for current quarter
+   ├─ If EXISTS → UPDATE existing record
+   └─ If NOT EXISTS → CREATE new record
+   
+4. Retrieve Latest Data
+   GET /scrape/{ticker} → Returns most recent quarter data
+```
+
+### 5. Specialized for Earnings Calls
 
 The system is optimized for financial transcripts:
 
@@ -287,6 +426,59 @@ The system is optimized for financial transcripts:
 - **Management Attribution**: Identifies who said what (CEO, CFO, etc.)
 - **Sentiment Capture**: Extracts management tone (bullish, cautious, confident)
 - **Partial Data Handling**: Provides insights even from incomplete excerpts
+
+## 🗄️ Database Schema
+
+### Tables
+
+#### 1. `stocks` - Stock Master Data
+#### 2. `stock_scrape_data` - Quarterly Financial Data
+### Relationships
+
+```
+stocks (1) ──────< (N) stock_scrape_data
+  │                       │
+  └─ One stock can have   └─ Multiple quarterly records
+     multiple quarters       (one per quarter)
+```
+
+### JSONB Column Structure
+
+**quarter_result:**
+```json
+{
+  "Q1 FY24": {"revenue": 50000, "profit": 5000},
+  "Q2 FY24": {"revenue": 55000, "profit": 5500}
+}
+```
+
+**growth_sales / growth_net_profit / growth_operating_profit:**
+```json
+{
+  "YoY": "15%",
+  "QoQ": "8%",
+  "3Y_CAGR": "12%"
+}
+```
+
+**shareholding_pattern:**
+```json
+{
+  "promoter": 65.5,
+  "institutional": 20.3,
+  "retail": 14.2
+}
+```
+
+**profit_loss:**
+```json
+{
+  "revenue": 50000,
+  "expenses": 40000,
+  "net_profit": 5000,
+  "margin": 10
+}
+```
 
 ## 💰 Cost Tracking
 
