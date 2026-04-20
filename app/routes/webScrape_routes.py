@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from typing import Dict
 from app.models.web_scrape import WebScrapeData, WebScrapeRequest
+from app.models.stock_scrape import StockScrapeDataResponse
 from app.controllers.webScrape_controller import WebScrapeController
 from app.services.webScrape_service import WebScrapeService
 from app.repositories.webScrape_repository import WebScrapeRepository
@@ -31,6 +32,6 @@ def get_all_scrapes() -> Dict[str, WebScrapeData]:
     return scrape_controller.get_all_scrapes()
 
 
-@router.get("/{url:path}")
-def get_scrape_by_url(url: str) -> WebScrapeData:
-    return scrape_controller.get_scrape_by_url(url)
+@router.get("/{ticker}")
+def get_scrape_by_ticker(ticker: str) -> StockScrapeDataResponse:
+    return scrape_controller.get_scrape_by_ticker(ticker)

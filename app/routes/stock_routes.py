@@ -2,11 +2,9 @@ from fastapi import APIRouter, Depends, Query
 from typing import Dict
 from app.models.stock import Stock, StockListResponse, StockCreateRequest, StockUpdateRequest, StockResponse
 from app.controllers.stock_controller import StockController
-from app.repositories.stock_repository import StockRepository
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
 
-stock_repository = StockRepository()
 stock_controller = StockController()
 
 

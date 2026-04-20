@@ -2,7 +2,7 @@ from typing import Dict, Optional
 from fastapi import HTTPException
 from app.models.stock import Stock, StockListResponse, StockUpdateRequest, StockResponse
 from app.database.connection import DatabaseConnection
-from app.database.repositories import StockRepository as DBStockRepository
+from app.database.stock_repository import StockRepository as DBStockRepository
 import logging
 
 logger = logging.getLogger(__name__)
