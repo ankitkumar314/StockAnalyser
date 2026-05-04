@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.routes import item_router, stock_router, scrape_router, agent_router
+from app.routes.transcript_routes import router as transcript_router
 from app.database.connection import DatabaseConnection
 import logging
 
@@ -30,3 +31,4 @@ app.include_router(item_router)
 app.include_router(stock_router)    
 app.include_router(scrape_router)
 app.include_router(agent_router)
+app.include_router(transcript_router)
