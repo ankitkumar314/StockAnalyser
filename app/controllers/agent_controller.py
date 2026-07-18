@@ -8,6 +8,7 @@ from app.agenticAI.Agents.answerAgent import AnswerAgent
 from app.agenticAI.Agents.evaluatorAgent import EvaluatorAgent
 from app.agenticAI.langraph import RAGGraph
 from app.agenticAI.langsmith_config import langsmith_config
+from app.services.summary_cache_service import SummaryCacheService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -151,7 +152,20 @@ class AgentController:
                 "What risks, challenges, or uncertainties did management highlight, including market conditions, cost pressures, regulatory risks, or operational constraints?",
                 "What major announcements, strategic initiatives, or upcoming catalysts were discussed that could significantly impact the company’s future performance?",
             ]
-            
+
+            cached_answers = SummaryCacheService.get_cached_answers(request.doc_id)
+            if cached_answers is not None:
+                cached_results = [
+                    QuestionAnswer(question=question, answer=answer, iteration_count=0)
+                    for question, answer in zip(STATIC_QUESTIONS, cached_answers)
+                ]
+                return BatchQuestionResponse(
+                    doc_id=request.doc_id,
+                    total_questions=len(STATIC_QUESTIONS),
+                    results=cached_results,
+                    cached=True
+                )
+
             vectorstore = self.vector_db_manager.load_vector_store(request.doc_id)
             
             if vectorstore is None:
@@ -218,12 +232,26 @@ class AgentController:
                         iteration_count=0
                     ))
             
+            all_succeeded = all(
+                not r.answer.startswith("Error:") and r.answer != "Failed to generate answer"
+                for r in results
+            )
+            if all_succeeded:
+                SummaryCacheService.save_answers(
+                    document_id=request.doc_id,
+                    answers=[r.answer for r in results],
+                    ticker=request.ticker,
+                    quarter_date=request.quarter_date,
+                    concall_url=request.concall_url
+                )
+
             response = BatchQuestionResponse(
                 doc_id=request.doc_id,
                 total_questions=len(STATIC_QUESTIONS),
-                results=results
+                results=results,
+                cached=False
             )
-            
+
             return response
             
         except ValueError as e:

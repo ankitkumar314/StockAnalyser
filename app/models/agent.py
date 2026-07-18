@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List
+from datetime import date
 
 
 class PDFIngestRequest(BaseModel):
@@ -33,9 +34,13 @@ class QuestionAnswer(BaseModel):
 
 class BatchQuestionRequest(BaseModel):
     doc_id: str
+    ticker: Optional[str] = None
+    quarter_date: Optional[date] = None
+    concall_url: Optional[str] = None
 
 
 class BatchQuestionResponse(BaseModel):
     doc_id: str
     total_questions: int
     results: List[QuestionAnswer]
+    cached: bool = False
