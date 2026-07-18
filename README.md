@@ -1,6 +1,6 @@
 # 📊 Stock Analyser - AI-Powered Financial Analysis & Data Platform
 
-A comprehensive financial analysis platform combining AI-powered earnings call analysis with automated stock data scraping and persistence. Built with FastAPI, LangGraph, and PostgreSQL, the system provides intelligent insights from earnings transcripts while maintaining a robust database of financial metrics and quarterly results.
+A comprehensive financial analysis platform combining AI-powered earnings call analysis with automated stock data scraping, live market data, and read-only Zerodha Kite portfolio integration. Built with FastAPI, LangGraph, and PostgreSQL, the system provides intelligent insights from earnings transcripts, caches them persistently, and turns them into an AI-written view of your own portfolio.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-green.svg)](https://fastapi.tiangolo.com/)
@@ -26,6 +26,42 @@ A comprehensive financial analysis platform combining AI-powered earnings call a
 - **🔄 Duplicate Prevention**: Intelligent upsert logic - updates existing quarter data instead of creating duplicates
 - **📊 Financial Metrics Storage**: JSONB columns for flexible storage of quarter results, growth metrics, and P&L data
 - **⚡ Repository Pattern**: Clean separation of concerns with service and repository layers
+
+### Portfolio & Market Data (v2)
+- **💼 Zerodha Kite Integration (Read-Only)**: Fetch live portfolio holdings with P&L, concentration and totals
+- **🔐 Kite Session Flow**: One-click daily login (`/kite/login`) with server-side token exchange — no manual token juggling
+- **📈 Live Market Data**: Yahoo Finance quotes and historical OHLC via yfinance
+- **🧠 Concall Summary Caching**: Batch-evaluate answers persisted to PostgreSQL — same document is never re-analysed twice
+- **🤖 AI Portfolio Analysis**: LLM-written short view per holding + overall portfolio view, combining concall summaries and technical indicators
+
+## 📦 Releases
+
+### v1.0 — AI Concall Analysis & Data Platform
+The foundation release:
+- Multi-agent RAG system (Planner → Retriever → Answerer → Evaluator) over earnings-call PDFs
+- PDF ingestion into FAISS vector stores with HuggingFace embeddings
+- Single query (`/agent/query`) and 5-question batch evaluation (`/agent/batch-evaluate`)
+- Stock master CRUD (`/stocks`) backed by PostgreSQL
+- screener.in financial data scraping (`/scrape`) with quarter-based upsert persistence
+- LLM cost tracking & prediction, LangSmith tracing
+
+### v2.0 — Portfolio, Market Data & Persistent Summaries *(current)*
+This release turns the platform from a document-analysis tool into a personal portfolio intelligence system:
+
+| Feature | Endpoints | Notes |
+|---|---|---|
+| **Concall summary cache** | `POST /agent/batch-evaluate` | Answers now persisted to `concall_summary`; repeat calls for the same `doc_id` return instantly from DB (`cached: true`), saving minutes of LLM time and cost |
+| **Live market data** | `GET /market-data/quote/{ticker}`, `GET /market-data/history/{ticker}` | Yahoo Finance via yfinance; Indian tickers need the exchange suffix (`KALYANKJIL.NS` / `.BO`) |
+| **Kite portfolio (read-only)** | `GET /portfolio` | Holdings with invested/current value, P&L, P&L %, portfolio concentration — sorted by current value. Strictly no trading endpoints |
+| **Kite session flow** | `GET /kite/login`, `GET /redirect/zerodha` | Official Kite Connect login → request_token → `generate_session` exchange done server-side; day's access token stored (memory + gitignored file), effective without restart |
+| **AI portfolio analysis (preview)** | `GET /portfolio/analysis` | Per-holding LLM short view + overall portfolio view from cached concall summaries and technical indicators (indicators are **dummy placeholders** in v2) |
+| **Unit tests** | `tests/` | Portfolio calculation math and transcript-URL picking covered by pytest |
+
+### v3.0 — Full Portfolio Intelligence *(planned)*
+- **Real technical analysis**: actual MACD, 50/200 DMA and DMA crossover computed from yfinance OHLC history (replacing the v2 dummy indicator service)
+- **Full-auto portfolio pipeline**: every holding automatically scraped → latest concall ingested → summarised → cached, end to end
+- **Combined technical + fundamental view**: one report per holding merging concall insights, technical signals, and quarterly financials from scrape data
+- **Portfolio-level risk view**: concentration, sector exposure, and signal-based watchlist across all holdings
 
 ## 🏗️ Architecture
 
@@ -93,27 +129,46 @@ pythonCrud/
 │   ├── controllers/            # Business logic layer
 │   │   ├── agent_controller.py      # RAG system endpoints
 │   │   ├── stock_controller.py      # Stock CRUD operations
-│   │   └── webScrape_controller.py  # Web scraping & data persistence
-│   ├── database/               # Database layer (NEW)
+│   │   ├── webScrape_controller.py  # Web scraping & data persistence
+│   │   ├── market_data_controller.py       # (v2) Live quotes & history
+│   │   ├── portfolio_controller.py         # (v2) Kite holdings
+│   │   └── portfolio_analysis_controller.py # (v2) AI portfolio analysis
+│   ├── database/               # Database layer
 │   │   ├── connection.py            # PostgreSQL connection manager
 │   │   ├── models.py                # SQLAlchemy ORM models
-│   │   ├── Stock_repository.py      # Stock data repository
-│   │   └── stock_scrap_data_repository.py  # Financial data repository
+│   │   ├── stock_repository.py      # Stock data repository
+│   │   ├── stock_scrap_data_repository.py  # Financial data repository
+│   │   └── summary_repository.py    # (v2) Concall summary cache repository
 │   ├── models/                 # Pydantic models
 │   │   ├── agent.py                 # RAG request/response models
 │   │   ├── stock.py                 # Stock data models
-│   │   ├── stock_db.py              # Stock database models
 │   │   ├── stock_scrape.py          # Stock scrape response models
-│   │   └── web_scrape.py            # Scraping models
+│   │   ├── web_scrape.py            # Scraping models
+│   │   ├── market_data.py           # (v2) Quote & OHLC models
+│   │   ├── portfolio.py             # (v2) Portfolio holding models
+│   │   └── portfolio_analysis.py    # (v2) Analysis response models
 │   ├── routes/                 # API endpoints
 │   │   ├── agent_routes.py          # /agent/* endpoints
 │   │   ├── stock_routes.py          # /stocks/* endpoints
-│   │   └── webScrape_routes.py      # /scrape/* endpoints
+│   │   ├── webScrape_routes.py      # /scrape/* endpoints
+│   │   ├── market_data_routes.py    # (v2) /market-data/* endpoints
+│   │   ├── portfolio_routes.py      # (v2) /portfolio endpoint
+│   │   ├── portfolio_analysis_routes.py  # (v2) /portfolio/analysis
+│   │   └── kite_redirect_routes.py  # (v2) /kite/login + /redirect/zerodha
 │   ├── services/               # Service layer
 │   │   ├── webScrape_service.py     # Web scraping service
 │   │   ├── Scraper_service.py       # Financial data scraper
-│   │   └── stock_scrape_data_service.py  # Stock data persistence service
+│   │   ├── stock_scrape_data_service.py  # Stock data persistence service
+│   │   ├── summary_cache_service.py # (v2) Batch-evaluate answer caching
+│   │   ├── market_data_service.py   # (v2) yfinance quotes & history
+│   │   ├── kite_service.py          # (v2) Kite holdings + portfolio math
+│   │   ├── kite_token_store.py      # (v2) Day's access token storage
+│   │   ├── portfolio_analysis_service.py  # (v2) Analysis orchestrator
+│   │   └── technicalIndicator_service.py  # (v2) Indicators (dummy, real in v3)
 │   └── repositories/           # Legacy data access layer
+├── scripts/
+│   └── generate_kite_access_token.py  # (v2) Manual token fallback
+├── tests/                      # (v2) pytest unit tests
 ├── vectorstores/               # Persisted FAISS indexes
 ├── downloads/                  # Downloaded PDFs
 ├── static/                     # Graph visualizations
@@ -131,6 +186,7 @@ pythonCrud/
 - PostgreSQL 14+ (for stock data persistence)
 - DeepSeek API Key (or OpenAI-compatible LLM)
 - LangSmith API Key (optional, for tracing)
+- Zerodha Kite Connect app — api_key + api_secret (optional, for portfolio endpoints)
 
 ### Installation
 
@@ -169,6 +225,12 @@ LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=your_langsmith_api_key_here
 LANGCHAIN_PROJECT=rag-agent-system
 LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
+
+# Optional (v2): Zerodha Kite Connect - portfolio endpoints
+# With the secret set, open http://localhost:8000/kite/login once a day;
+# the app exchanges and stores the day's access token automatically.
+KITE_API_KEY=your_kite_api_key_here
+KITE_API_SECRET=your_kite_api_secret_here
 ```
 
 5. **Run the application**
@@ -231,12 +293,36 @@ POST /agent/query
 }
 ```
 
-#### 3. Batch Evaluation
+#### 3. Batch Evaluation (with persistent caching — v2)
 ```bash
 POST /agent/batch-evaluate
 ```
 
-Runs 6 predefined questions against the document for comprehensive analysis.
+Runs 5 predefined questions against the document for comprehensive analysis.
+Results are **persisted to the `concall_summary` table**; calling again with the
+same `doc_id` returns instantly from the database with `"cached": true`.
+
+**Request:**
+```json
+{
+  "doc_id": "27bebce8-2659-4d78-a5ba-62a7750a85b4",
+  "ticker": "KALYANKJIL",
+  "quarter_date": "2026-06-30",
+  "concall_url": "https://example.com/transcript.pdf"
+}
+```
+`ticker`, `quarter_date` and `concall_url` are optional — when provided they link
+the cached summary to the stock and quarter in the database.
+
+**Response:**
+```json
+{
+  "doc_id": "27bebce8-2659-4d78-a5ba-62a7750a85b4",
+  "total_questions": 5,
+  "results": [{"question": "...", "answer": "...", "iteration_count": 1}],
+  "cached": false
+}
+```
 
 #### 4. Cost Tracking
 ```bash
@@ -358,6 +444,107 @@ GET /scrape/{ticker}
 }
 ```
 
+### Market Data Endpoints (`/market-data`) — v2
+
+#### 1. Live Quote
+```bash
+GET /market-data/quote/{ticker}
+```
+Indian tickers need the Yahoo exchange suffix: `KALYANKJIL.NS` (NSE) or `KALYANKJIL.BO` (BSE).
+
+**Response:**
+```json
+{
+  "ticker": "KALYANKJIL.NS",
+  "price": 574.4,
+  "previous_close": 546.6,
+  "day_change": 27.8,
+  "day_change_percent": 5.08,
+  "day_high": 577.5,
+  "day_low": 541.25,
+  "volume": 53915340,
+  "market_cap": 593205985280,
+  "currency": "INR",
+  "fetched_at": "2026-07-18T18:52:43Z"
+}
+```
+
+#### 2. Historical OHLC
+```bash
+GET /market-data/history/{ticker}?period=1mo&interval=1d
+```
+Returns OHLC bars (`date`, `open`, `high`, `low`, `close`, `volume`) for charting
+or indicator calculations. `period`/`interval` accept standard yfinance values
+(`5d`, `1mo`, `1y`, `1d`, `1wk`, ...).
+
+> **Note:** Yahoo Finance is an unofficial data source with no published rate
+> limits — keep request volume modest.
+
+### Zerodha Kite Endpoints — v2 (Read-Only)
+
+#### 1. Daily Login (once per day)
+```bash
+GET /kite/login          # open in a browser
+```
+Redirects to Zerodha's login page. After login, Zerodha redirects to
+`/redirect/zerodha`, where the server completes the official Kite Connect
+session exchange (`generate_session`) and stores the day's access token —
+active immediately, no restart needed. Kite access tokens expire daily
+(~6 AM IST), so this is a once-a-day step.
+
+Requires `KITE_API_KEY` and `KITE_API_SECRET` in `.env`, and the app's redirect
+URL in the [Kite developer console](https://developers.kite.trade/apps) set to
+`http://localhost:8000/redirect/zerodha`.
+
+#### 2. Portfolio Holdings
+```bash
+GET /portfolio
+```
+
+**Response:**
+```json
+{
+  "portfolio_value": 1245634.50,
+  "total_investment": 1123400.25,
+  "total_pnl": 122234.25,
+  "total_pnl_percent": 10.88,
+  "holdings": [
+    {
+      "symbol": "RELIANCE",
+      "company_name": "Reliance Industries Ltd",
+      "exchange": "NSE",
+      "quantity": 15,
+      "average_price": 2475.50,
+      "current_price": 2860.30,
+      "invested_value": 37132.50,
+      "current_value": 42904.50,
+      "profit_loss": 5772.00,
+      "profit_loss_percent": 15.54,
+      "portfolio_concentration": 3.44
+    }
+  ]
+}
+```
+Holdings are sorted by current value (largest first). Errors: `401` expired/invalid
+token, `503` network failure, `502` other Zerodha API failures.
+
+> **Strictly read-only** — no order placement, positions, margins, or any trading
+> functionality is implemented.
+
+#### 3. AI Portfolio Analysis (preview)
+```bash
+GET /portfolio/analysis?generate_missing=false&max_generate=2
+```
+Combines Kite holdings + cached concall summaries + technical indicators
+(**dummy values in v2**) into an LLM-written 3-4 sentence view per holding and
+an overall portfolio view.
+
+- `generate_missing=true`: for holdings without a cached concall summary, runs
+  the full scrape → ingest → batch-evaluate pipeline (slow — minutes per stock),
+  capped by `max_generate`
+- Response also lists `not_tracked` (holdings missing from the `stocks` table)
+  and `missing_summaries` (holdings still needing summary generation)
+
 ## 🧠 How It Works
 
 ### 1. Document Ingestion (RAG System)
@@ -433,13 +620,22 @@ The system is optimized for financial transcripts:
 
 #### 1. `stocks` - Stock Master Data
 #### 2. `stock_scrape_data` - Quarterly Financial Data
+#### 3. `concall_summary` - Cached Batch-Evaluate Answers (v2)
+Stores the 5 batch-evaluate answers per document (`answer1`..`answer5`), keyed by
+`document_id`, optionally linked to a stock (`stockid`) and `quarter_date` — this
+is the persistent cache behind `POST /agent/batch-evaluate` and the source of
+concall insights for `GET /portfolio/analysis`.
+#### 4. `concall_transcript` - Transcript Tracking
+
 ### Relationships
 
 ```
 stocks (1) ──────< (N) stock_scrape_data
   │                       │
-  └─ One stock can have   └─ Multiple quarterly records
-     multiple quarters       (one per quarter)
+  │                       └─ Multiple quarterly records (one per quarter)
+  │
+  ├──────< (N) concall_summary      (cached AI answers per document/quarter)
+  └──────< (N) concall_transcript   (transcript URLs + processing status)
 ```
 
 ### JSONB Column Structure
@@ -533,6 +729,9 @@ The evaluator checks for:
 ### Running Tests
 
 ```bash
+# Unit tests (portfolio calculations, transcript URL picking)
+python -m pytest tests/ -v
+
 # Run the application
 uvicorn main:app --reload --port 8000
 

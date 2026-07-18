@@ -13,8 +13,8 @@ class SummaryRepository:
     @staticmethod
     def create(
         session: Session,
-        stock_id: int,
-        quarter_date: date,
+        stock_id: Optional[int] = None,
+        quarter_date: Optional[date] = None,
         answer1: Optional[str] = None,
         answer2: Optional[str] = None,
         answer3: Optional[str] = None,
@@ -91,6 +91,18 @@ class SummaryRepository:
             logger.error(f"Error getting summaries by stock ID: {str(e)}")
             return []
     
+    @staticmethod
+    def get_by_document_id(session: Session, document_id: str) -> Optional[ConcallSummary]:
+        """Get summary by RAG document_id (doc_id), most recent first."""
+        try:
+            return session.query(ConcallSummary)\
+                .filter(ConcallSummary.document_id == document_id)\
+                .order_by(ConcallSummary.created_at.desc())\
+                .first()
+        except Exception as e:
+            logger.error(f"Error getting summary by document ID: {str(e)}")
+            return None
+
     @staticmethod
     def update(session: Session, summary_id: int, **kwargs) -> bool:
         """Update summary record."""

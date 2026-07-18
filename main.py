@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from app.routes import item_router, stock_router, scrape_router, agent_router
 from app.routes.transcript_routes import router as transcript_router
+from app.routes.market_data_routes import router as market_data_router
+from app.routes.portfolio_routes import router as portfolio_router
+from app.routes.portfolio_analysis_routes import router as portfolio_analysis_router
+from app.routes.kite_redirect_routes import router as kite_redirect_router
 from app.database.connection import DatabaseConnection
 import logging
 
@@ -32,3 +36,7 @@ app.include_router(stock_router)
 app.include_router(scrape_router)
 app.include_router(agent_router)
 app.include_router(transcript_router)
+app.include_router(market_data_router)
+app.include_router(portfolio_router)
+app.include_router(portfolio_analysis_router)
+app.include_router(kite_redirect_router)

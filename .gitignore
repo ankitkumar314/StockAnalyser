@@ -11,3 +11,4 @@ env/
 venv/
 .venv/
 .vscode/
+.kite_access_token

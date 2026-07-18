@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from typing import Dict
 from app.models.web_scrape import WebScrapeData, WebScrapeRequest
 from app.models.stock_scrape import StockScrapeDataResponse
