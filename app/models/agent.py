@@ -3,7 +3,9 @@ from typing import Optional, List
 
 
 class PDFIngestRequest(BaseModel):
+    """Request model for creating a transcript."""
     pdf_url: str
+    ticker: str
 
 
 class PDFIngestResponse(BaseModel):

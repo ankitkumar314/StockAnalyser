@@ -180,6 +180,8 @@ class Stock(Base):
     update_at = Column(TIMESTAMP, default=func.now(), onupdate=func.now())
     
     scrape_data = relationship("StockScrapeData", back_populates="stock", cascade="all, delete-orphan")
+    transcripts = relationship("ConcallTranscript", back_populates="stock", cascade="all, delete-orphan")
+    summaries = relationship("ConcallSummary", back_populates="stock", cascade="all, delete-orphan")
     
     __table_args__ = (
         Index('idx_stocks_ticker', 'ticker'),
@@ -206,3 +208,44 @@ class StockScrapeData(Base):
     __table_args__ = (
         Index('Stock_scrape_Data_stockId_idx', 'stockId'),
     )
+
+
+class ConcallSummary(Base):
+    __tablename__ = 'concall_summary'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_at = Column(TIMESTAMP, nullable=False, default=func.now())
+    stockid = Column(Integer, ForeignKey('stocks.id', ondelete='CASCADE'))
+    answer1 = Column(Text)
+    answer2 = Column(Text)
+    answer3 = Column(Text)
+    answer4 = Column(Text)
+    answer5 = Column(Text)
+    prev_concall_hisotry = Column(Text)
+    concall_url = Column(String)
+    quarter_date = Column(Date)
+    document_id = Column(String)
+    
+    stock = relationship("Stock", back_populates="summaries")
+    transcript = relationship("ConcallTranscript", back_populates="summary", uselist=False)
+    
+    __table_args__ = (
+        Index('concall_summary_stockid_idx', 'stockid'),
+    )
+
+
+class ConcallTranscript(Base):
+    __tablename__ = 'concall_transcript'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_at = Column(TIMESTAMP, nullable=False, default=func.now())
+    transcript_url = Column(String)
+    quarter_date = Column(Date)
+    status = Column(String)
+    summary_id = Column(Integer, ForeignKey('concall_summary.id', ondelete='SET NULL'))
+    stock_id = Column(Integer, ForeignKey('stocks.id', ondelete='CASCADE'))
+    
+    stock = relationship("Stock", back_populates="transcripts")
+    summary = relationship("ConcallSummary", back_populates="transcript", foreign_keys=[summary_id])
+    
+    __table_args__ = ()
