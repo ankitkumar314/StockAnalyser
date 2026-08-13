@@ -4,13 +4,18 @@ from datetime import date
 
 
 class TechnicalIndicators(BaseModel):
-    macd: float
-    macd_signal: float
-    macd_trend: str
-    dma_50: float
-    dma_200: float
-    dma_crossover: str
-    is_dummy: bool = True
+    """v3: real values computed from OHLC history; any field can be None when
+    there is insufficient price history. Extended v3 fields (RSI, ATR, 52w
+    range, volatility, support/resistance) are allowed via extra."""
+    model_config = {"extra": "allow"}
+
+    macd: Optional[float] = None
+    macd_signal: Optional[float] = None
+    macd_trend: Optional[str] = None
+    dma_50: Optional[float] = None
+    dma_200: Optional[float] = None
+    dma_crossover: Optional[str] = None
+    is_dummy: bool = False
 
 
 class StockAnalysis(BaseModel):

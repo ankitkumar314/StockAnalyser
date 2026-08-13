@@ -57,11 +57,37 @@ This release turns the platform from a document-analysis tool into a personal po
 | **AI portfolio analysis (preview)** | `GET /portfolio/analysis` | Per-holding LLM short view + overall portfolio view from cached concall summaries and technical indicators (indicators are **dummy placeholders** in v2) |
 | **Unit tests** | `tests/` | Portfolio calculation math and transcript-URL picking covered by pytest |
 
-### v3.0 — Full Portfolio Intelligence *(planned)*
-- **Real technical analysis**: actual MACD, 50/200 DMA and DMA crossover computed from yfinance OHLC history (replacing the v2 dummy indicator service)
-- **Full-auto portfolio pipeline**: every holding automatically scraped → latest concall ingested → summarised → cached, end to end
-- **Combined technical + fundamental view**: one report per holding merging concall insights, technical signals, and quarterly financials from scrape data
-- **Portfolio-level risk view**: concentration, sector exposure, and signal-based watchlist across all holdings
+### v3.0 — Full Portfolio Intelligence *(current)*
+Turns every holding into an analyst-grade research note and the portfolio into a risk-scored rollup:
+
+| Feature | Where | Notes |
+|---|---|---|
+| **Real technical analysis** | `TechnicalIndicatorService` | MACD(12,26,9), 50/200 DMA + crossover, RSI-14, ATR-14, 52-week range, swing support/resistance, annualized volatility, max drawdown — computed from yfinance OHLC (dummy service fully replaced, same return shape) |
+| **Fundamental engine** | `FundamentalAnalysisService` | TTM sales/profit/EPS + growth, 3y/5y CAGRs, OPM trend, CFO/PAT, ROCE trend, D/E, cash conversion cycle, shareholding shifts, rule-based red flags & positives — from screener scrape data |
+| **Valuation** | `FundamentalAnalysisService` | TTM P/E, earnings yield, PEG vs 3y profit CAGR |
+| **Scorecard** | `ScorecardService` | 0-10 pillar scores (growth / quality / technicals / valuation), weighted composite, rule-based stance, position-risk notes (concentration, gain cushion), watch triggers |
+| **Research note per holding** | `GET /portfolio/report/{symbol}` | One report stitching position + technicals + fundamentals + cached concall insights (+ optional LLM narrative), as JSON and rendered Markdown saved to `reports/` |
+| **Portfolio rollup** | `GET /portfolio/report` | Totals, holdings scorecard table, top-3 weight + Herfindahl concentration, red flags across holdings |
+| **Offline mode** | `scripts/generate_offline_report.py` | Build the same report from JSON files — no DB, Kite, or LLM needed |
+
+**Endpoints:**
+```bash
+GET /portfolio/report?period=1y&llm=false&save=true      # every holding + rollup
+GET /portfolio/report/{symbol}?period=1y&llm=false       # single holding
+```
+- `llm=true` layers DeepSeek-written per-holding and overall narratives on top of the deterministic analysis (requires API key; everything else works without it)
+- `save=true` writes dated Markdown files to `reports/`
+- Degrades gracefully: sections are omitted (and `data_coverage` reports what was available) when price history, scrape data, or concall summaries are missing
+
+**Offline usage (no server needed):**
+```bash
+python scripts/generate_offline_report.py \
+    --holding sample_data/kalyan_holding.json \
+    --scrape sample_data/kalyan_scrape.json \
+    --summary sample_data/kalyan_concall_summary.json \
+    --out reports/
+```
+See `sample_data/KALYANKJIL_sample_report.md` for example output. All scores and stances are rule-based signals, not investment advice.
 
 ## 🏗️ Architecture
 
@@ -164,7 +190,10 @@ pythonCrud/
 │   │   ├── kite_service.py          # (v2) Kite holdings + portfolio math
 │   │   ├── kite_token_store.py      # (v2) Day's access token storage
 │   │   ├── portfolio_analysis_service.py  # (v2) Analysis orchestrator
-│   │   └── technicalIndicator_service.py  # (v2) Indicators (dummy, real in v3)
+│   │   ├── technicalIndicator_service.py  # (v3) Real indicators from OHLC
+│   │   ├── fundamental_analysis_service.py # (v3) Screener-data fundamentals
+│   │   ├── scorecard_service.py           # (v3) Pillar scores + risk + triggers
+│   │   └── stock_report_service.py        # (v3) Report stitching + Markdown
 │   └── repositories/           # Legacy data access layer
 ├── scripts/
 │   └── generate_kite_access_token.py  # (v2) Manual token fallback

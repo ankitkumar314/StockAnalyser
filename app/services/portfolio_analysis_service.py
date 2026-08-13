@@ -100,7 +100,7 @@ class PortfolioAnalysisService:
 Stock: {holding['company_name']} ({holding['symbol']})
 Position: {holding['quantity']} shares, current value {holding['current_value']:.2f}, P&L {holding['profit_loss']:.2f} ({holding['profit_loss_percent']:.2f}%), {holding['portfolio_concentration']:.2f}% of portfolio.
 
-Technical indicators (note: placeholder data for now): MACD {indicators['macd']} vs signal {indicators['macd_signal']} ({indicators['macd_trend']}), 50-DMA {indicators['dma_50']}, 200-DMA {indicators['dma_200']}, crossover: {indicators['dma_crossover']}.
+Technical indicators: MACD {indicators.get('macd')} vs signal {indicators.get('macd_signal')} ({indicators.get('macd_trend')}), 50-DMA {indicators.get('dma_50')}, 200-DMA {indicators.get('dma_200')}, crossover: {indicators.get('dma_crossover')}, RSI-14 {indicators.get('rsi_14')}, {indicators.get('percent_from_52w_high')}% from 52-week high.
 
 Latest earnings call summary:
 {concall_section}
