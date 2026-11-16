@@ -6,12 +6,12 @@ router = APIRouter(prefix="/market-data", tags=["market-data"])
 
 market_data_controller = MarketDataController()
 
-
+##stale route 
 @router.get("/quote/{ticker}", response_model=QuoteResponse)
 def get_quote(ticker: str):
     return market_data_controller.get_quote(ticker)
 
-
+## give history of data foreach ticker here 
 @router.get("/history/{ticker}", response_model=HistoryResponse)
 def get_history(ticker: str, period: str = "1y", interval: str = "1d"):
     return market_data_controller.get_history(ticker, period, interval)

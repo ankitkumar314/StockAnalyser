@@ -116,7 +116,7 @@ class ScraperService:
             doc_data = {}
 
             # 🔗 All possible elements
-            elements = item.select(".concall-link")
+            elements = item.select(".button-chip")
 
             for el in elements:
                 text = el.get_text(strip=True).lower()

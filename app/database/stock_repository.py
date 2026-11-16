@@ -46,6 +46,7 @@ class StockRepository:
         """Get all stocks with pagination."""
         try:
             return session.query(Stock)\
+                .filter(Stock.is_active == 1)\
                 .order_by(Stock.created_at.desc())\
                 .limit(limit)\
                 .offset(offset)\

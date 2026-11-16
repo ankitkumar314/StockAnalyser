@@ -14,9 +14,6 @@ logger = logging.getLogger(__name__)
 class WebScrapeController:
     def __init__(self):
         self.stock_controller = StockController()
-
-    def get_all_scrapes(self) -> Dict[str, WebScrapeData]:
-        return {}
     
     def get_scrape_by_ticker(self, ticker: str) -> StockScrapeDataResponse:
         try:

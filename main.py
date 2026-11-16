@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from app.routes import item_router, stock_router, scrape_router, agent_router
+from app.routes import stock_router, scrape_router, agent_router
 from app.routes.transcript_routes import router as transcript_router
 from app.routes.market_data_routes import router as market_data_router
 from app.routes.portfolio_routes import router as portfolio_router
@@ -44,7 +44,6 @@ async def shutdown_event():
     DatabaseConnection.close_all()
     logger.info("Database connections closed")
 
-app.include_router(item_router)
 app.include_router(stock_router)    
 app.include_router(scrape_router)
 app.include_router(agent_router)
