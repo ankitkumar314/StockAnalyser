@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from app.routes import item_router, stock_router, scrape_router, agent_router
 from app.routes.transcript_routes import router as transcript_router
 from app.routes.market_data_routes import router as market_data_router
@@ -13,6 +16,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Stock Analyser API", version="1.0.0")
+
+# static/ is gitignored (generated output), so it may not exist on a fresh clone;
+# StaticFiles requires the directory to exist at mount time.
+Path("static").mkdir(exist_ok=True)
+
+# Serves saved chart PNGs (and other files under static/) directly over HTTP, e.g.
+# http://localhost:8000/static/technical_charts/AAPL_technical_chart.png
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.on_event("startup")
 async def startup_event():

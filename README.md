@@ -34,6 +34,11 @@ A comprehensive financial analysis platform combining AI-powered earnings call a
 - **🧠 Concall Summary Caching**: Batch-evaluate answers persisted to PostgreSQL — same document is never re-analysed twice
 - **🤖 AI Portfolio Analysis**: LLM-written short view per holding + overall portfolio view, combining concall summaries and technical indicators
 
+### Technical Analysis (v3)
+- **📐 OOP Indicator Library**: MACD, RSI, ATR, ADX, Bollinger Bands and Renko as standalone, independently testable classes (`app/quant/indicators/`), each computed with Wilder smoothing where applicable rather than naive rolling averages
+- **📉 Server-Rendered Charts**: Multi-panel price/Bollinger/MACD/RSI/ADX chart plus a separate Renko brick chart, rendered with matplotlib — returned as base64 PNG and/or saved under `static/technical_charts/`
+- **🔌 Standalone Ticker Endpoint**: `GET /technical-analysis/{ticker}` — full indicator time series + latest values + charts for any Yahoo Finance ticker, independent of the Kite portfolio
+
 ## 📦 Releases
 
 ### v1.0 — AI Concall Analysis & Data Platform
@@ -63,6 +68,7 @@ Turns every holding into an analyst-grade research note and the portfolio into a
 | Feature | Where | Notes |
 |---|---|---|
 | **Real technical analysis** | `TechnicalIndicatorService` | MACD(12,26,9), 50/200 DMA + crossover, RSI-14, ATR-14, 52-week range, swing support/resistance, annualized volatility, max drawdown — computed from yfinance OHLC (dummy service fully replaced, same return shape) |
+| **Technical indicator charts** | `GET /technical-analysis/{ticker}` | MACD, RSI, ATR, ADX, Bollinger Bands & Renko computed by the OOP `app/quant/` indicator library from live yfinance OHLCV; returns the full time series, latest values, and matplotlib-rendered chart(s) (base64 and/or saved under `static/technical_charts/`) |
 | **Fundamental engine** | `FundamentalAnalysisService` | TTM sales/profit/EPS + growth, 3y/5y CAGRs, OPM trend, CFO/PAT, ROCE trend, D/E, cash conversion cycle, shareholding shifts, rule-based red flags & positives — from screener scrape data |
 | **Valuation** | `FundamentalAnalysisService` | TTM P/E, earnings yield, PEG vs 3y profit CAGR |
 | **Scorecard** | `ScorecardService` | 0-10 pillar scores (growth / quality / technicals / valuation), weighted composite, rule-based stance, position-risk notes (concentration, gain cushion), watch triggers |
@@ -158,7 +164,8 @@ pythonCrud/
 │   │   ├── webScrape_controller.py  # Web scraping & data persistence
 │   │   ├── market_data_controller.py       # (v2) Live quotes & history
 │   │   ├── portfolio_controller.py         # (v2) Kite holdings
-│   │   └── portfolio_analysis_controller.py # (v2) AI portfolio analysis
+│   │   ├── portfolio_analysis_controller.py # (v2) AI portfolio analysis
+│   │   └── technical_analysis_controller.py # (v3) Indicators + charts per ticker
 │   ├── database/               # Database layer
 │   │   ├── connection.py            # PostgreSQL connection manager
 │   │   ├── models.py                # SQLAlchemy ORM models
@@ -172,7 +179,8 @@ pythonCrud/
 │   │   ├── web_scrape.py            # Scraping models
 │   │   ├── market_data.py           # (v2) Quote & OHLC models
 │   │   ├── portfolio.py             # (v2) Portfolio holding models
-│   │   └── portfolio_analysis.py    # (v2) Analysis response models
+│   │   ├── portfolio_analysis.py    # (v2) Analysis response models
+│   │   └── technical_analysis.py    # (v3) Indicator series/chart response models
 │   ├── routes/                 # API endpoints
 │   │   ├── agent_routes.py          # /agent/* endpoints
 │   │   ├── stock_routes.py          # /stocks/* endpoints
@@ -180,7 +188,8 @@ pythonCrud/
 │   │   ├── market_data_routes.py    # (v2) /market-data/* endpoints
 │   │   ├── portfolio_routes.py      # (v2) /portfolio endpoint
 │   │   ├── portfolio_analysis_routes.py  # (v2) /portfolio/analysis
-│   │   └── kite_redirect_routes.py  # (v2) /kite/login + /redirect/zerodha
+│   │   ├── kite_redirect_routes.py  # (v2) /kite/login + /redirect/zerodha
+│   │   └── technical_analysis_routes.py  # (v3) /technical-analysis/{ticker}
 │   ├── services/               # Service layer
 │   │   ├── webScrape_service.py     # Web scraping service
 │   │   ├── Scraper_service.py       # Financial data scraper
@@ -193,14 +202,22 @@ pythonCrud/
 │   │   ├── technicalIndicator_service.py  # (v3) Real indicators from OHLC
 │   │   ├── fundamental_analysis_service.py # (v3) Screener-data fundamentals
 │   │   ├── scorecard_service.py           # (v3) Pillar scores + risk + triggers
-│   │   └── stock_report_service.py        # (v3) Report stitching + Markdown
+│   │   ├── stock_report_service.py        # (v3) Report stitching + Markdown
+│   │   └── technical_analysis_service.py  # (v3) Orchestrates app/quant/ + charts
+│   ├── quant/                   # (v3) OOP technical-analysis engine
+│   │   ├── indicators/
+│   │   │   ├── base.py              # Indicator ABC (validate/compute/latest)
+│   │   │   ├── macd.py, rsi.py, atr.py, adx.py
+│   │   │   ├── bollinger_bands.py
+│   │   │   └── renko.py             # Self-contained brick chart (no stocktrends dep)
+│   │   └── chart_builder.py         # matplotlib rendering (main panel + Renko)
 │   └── repositories/           # Legacy data access layer
 ├── scripts/
 │   └── generate_kite_access_token.py  # (v2) Manual token fallback
-├── tests/                      # (v2) pytest unit tests
+├── tests/                      # (v2) pytest unit tests, incl. (v3) quant indicator tests
 ├── vectorstores/               # Persisted FAISS indexes
 ├── downloads/                  # Downloaded PDFs
-├── static/                     # Graph visualizations
+├── static/                     # Graph visualizations + (v3) technical_charts/ PNGs
 ├── utility/                    # Helper functions
 ├── main.py                     # FastAPI application entry
 ├── requirements.txt            # Python dependencies
@@ -509,6 +526,49 @@ or indicator calculations. `period`/`interval` accept standard yfinance values
 > **Note:** Yahoo Finance is an unofficial data source with no published rate
 > limits — keep request volume modest.
 
+### Technical Analysis Endpoints (`/technical-analysis`) — v3
+
+#### Indicators + Charts for a Ticker
+```bash
+GET /technical-analysis/{ticker}?period=6mo&interval=1d&include_chart=true&save_chart=true
+```
+Fetches OHLCV via the same `MarketDataService` used by `/market-data`, then runs
+MACD(12,26,9), RSI-14, ATR-14, ADX-14, Bollinger Bands(20, 2σ) and a Renko view
+(brick size defaults to the latest ATR-14) through the `app/quant/` indicator
+classes, and renders the accompanying chart(s) with matplotlib.
+
+- `include_chart=true` returns `chart_png_base64` (multi-panel price/Bollinger/MACD/RSI/ADX chart) and `renko_chart_png_base64` in the response
+- `save_chart=true` writes the same PNGs to `static/technical_charts/{TICKER}_technical_chart.png` and `{TICKER}_renko_chart.png` and returns their paths
+- `period`/`interval` accept the same yfinance values as `/market-data/history`; short periods that don't cover an indicator's minimum lookback (e.g. `5d` vs MACD's 26-bar requirement) return `400` with a clear message
+- Unknown tickers return `404`
+
+**Response (truncated):**
+```json
+{
+  "ticker": "AAPL",
+  "period": "6mo",
+  "interval": "1d",
+  "bars_used": 125,
+  "as_of": "2026-08-13T00:00:00-04:00",
+  "latest": {
+    "macd": {"macd": -2.30, "signal": 0.84, "histogram": -3.14},
+    "rsi": {"rsi": 41.19},
+    "atr": {"atr": 8.20},
+    "bollinger_bands": {"middle_band": 319.49, "upper_band": 345.26, "lower_band": 293.72, "bandwidth": 51.54, "percent_b": 0.18},
+    "adx": {"adx": 22.52, "plus_di": 20.16, "minus_di": 30.55},
+    "renko": {"brick_size": 8.20, "trend": "down", "bar_num": -1}
+  },
+  "series": { "dates": [...], "close": [...], "macd": {...}, "rsi": {...}, "atr": {...}, "bollinger_bands": {...}, "adx": {...} },
+  "renko": {"brick_size": 8.20, "bricks": [{"date": "...", "open": 255.4, "close": 263.6, "direction": 1, "bar_num": 1}, ...]},
+  "chart_png_base64": "iVBORw0KG...",
+  "chart_saved_path": "static/technical_charts/AAPL_technical_chart.png",
+  "renko_chart_png_base64": "iVBORw0KG...",
+  "renko_chart_saved_path": "static/technical_charts/AAPL_renko_chart.png"
+}
+```
+Series values that are `NaN` during an indicator's warm-up window are returned
+as `null`, never as literal `NaN`, so the response is always valid JSON.
+
 ### Zerodha Kite Endpoints — v2 (Read-Only)
 
 #### 1. Daily Login (once per day)
@@ -758,7 +818,7 @@ The evaluator checks for:
 ### Running Tests
 
 ```bash
-# Unit tests (portfolio calculations, transcript URL picking)
+# Unit tests (portfolio calculations, transcript URL picking, quant indicators)
 python -m pytest tests/ -v
 
 # Run the application

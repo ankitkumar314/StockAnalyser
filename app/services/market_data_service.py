@@ -41,7 +41,7 @@ class MarketDataService:
     @staticmethod
     def get_history(ticker: str, period: str = "1mo", interval: str = "1d") -> Optional[Dict]:
         """Fetch historical OHLC bars for a ticker. Returns None if no data is found."""
-        df = yf.Ticker(ticker).history(period=period, interval=interval)
+        df = yf.download(ticker, period=period, interval=interval)
         if df is None or df.empty:
             return None
 
@@ -49,10 +49,10 @@ class MarketDataService:
         for index, row in df.iterrows():
             bars.append({
                 "date": index.to_pydatetime(),
-                "open": float(row["Open"]),
-                "high": float(row["High"]),
-                "low": float(row["Low"]),
-                "close": float(row["Close"]),
-                "volume": int(row["Volume"]),
+                "open": float(row["Open"][ticker.upper()]),
+                "high": float(row["High"][ticker.upper()]),
+                "low": float(row["Low"][ticker.upper()]),
+                "close": float(row["Close"][ticker.upper()]),
+                "volume": int(row["Volume"][ticker.upper()]),
             })
         return {"ticker": ticker.upper(), "bars": bars}

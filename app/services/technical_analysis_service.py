@@ -1,4 +1,5 @@
 import logging
+import numbers
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -23,6 +24,25 @@ def _clean_list(series: pd.Series) -> List[Optional[float]]:
     return [None if pd.isna(v) else float(v) for v in series]
 
 
+def _sanitize_nan(value):
+    """
+    Recursively replace NaN scalars with None anywhere in a nested dict/list.
+    Starlette's default JSONResponse serializes with allow_nan=False, so any
+    literal NaN reaching the response (pydantic itself accepts NaN as a valid
+    float and won't catch it) crashes the request with a 500 at render time
+    instead of a clean error. This is the last line of defense on top of the
+    targeted per-field cleaning below, for any NaN source we haven't anticipated
+    (e.g. a gap in upstream OHLCV data).
+    """
+    if isinstance(value, dict):
+        return {k: _sanitize_nan(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_nan(v) for v in value]
+    if isinstance(value, numbers.Real) and value != value:  # NaN is the only value where x != x
+        return None
+    return value
+
+
 class TechnicalAnalysisService:
     """
     Fetches OHLCV history for a ticker and computes MACD, RSI, ATR, Bollinger Bands,
@@ -43,6 +63,14 @@ class TechnicalAnalysisService:
             columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"},
             inplace=True,
         )
+        # Yahoo occasionally returns rows with NaN OHLC (holidays that slipped through,
+        # a still-forming live bar, thin/illiquid tickers). A NaN bar mid-series would
+        # both corrupt every rolling/EWM indicator downstream and crash JSON
+        # serialization (Starlette's JSONResponse disallows literal NaN), so drop them
+        # here exactly like the reference indicator scripts do before computing anything.
+        df.dropna(subset=["Open", "High", "Low", "Close"], how="any", inplace=True)
+        if df.empty:
+            return None
         return df
 
     @classmethod
@@ -100,7 +128,7 @@ class TechnicalAnalysisService:
 
         series = {
             "dates": df.index.tolist(),
-            "close": df["Close"].astype(float).tolist(),
+            "close": _clean_list(df["Close"]),
             "macd": {
                 "macd": _clean_list(macd_df["MACD"]),
                 "signal": _clean_list(macd_df["Signal"]),
@@ -153,4 +181,4 @@ class TechnicalAnalysisService:
             )
             result.update(chart_result)
 
-        return result
+        return _sanitize_nan(result)
