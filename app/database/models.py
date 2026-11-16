@@ -257,6 +257,7 @@ class StockScrapeData(Base):
     shareholding_pattern = Column(JSONB)
     profit_loss = Column(JSONB)
     quarter_date = Column(Date)
+    months = Column(JSONB)
 
     stock = relationship("Stock", back_populates="scrape_data")
 

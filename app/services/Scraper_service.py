@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+from typing import List
 from utility import calculate_growth
 
 class ScraperService:
@@ -16,10 +17,33 @@ class ScraperService:
         response.raise_for_status()
         return response.text
 
+    def parse_months_index(self, soup) -> List:
+       sections = soup.find_all("section", id=True)
+       for section in sections:
+             table = section.find("table")
+             if not table:
+                 continue
+             
+             thead = table.find("thead")
+             if not thead:
+                 continue
+             
+             months = [
+                 th.get_text(strip=True).replace(" ", "")
+                 for th in thead.find_all("th")
+                 if th.get("data-date-key")
+             ]
+     
+             if months:
+                 return months
+
     def parse_all_financial_tables(self, soup) -> dict:
         output = {}
 
         sections = soup.find_all("section", id=True)
+        
+        ## get the months data as well here 
+        output["months"] = self.parse_months_index(soup)
 
         for section in sections:
             section_id = section.get("id")

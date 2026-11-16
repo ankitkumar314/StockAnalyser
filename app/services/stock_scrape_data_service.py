@@ -91,6 +91,7 @@ class StockScrapeDataService:
                 growth_operating_profit_data = growth.get('operating_profit')
                 shareholding_data = data.get('shareholding')
                 profit_loss_data = data.get('profit-loss')
+                months = data.get('months')
                 
                 # Extract quarter date from the scraped data
                 quarter_date = StockScrapeDataService._extract_quarter_date(quarter_data)
@@ -118,7 +119,8 @@ class StockScrapeDataService:
                         growth_operating_profit=growth_operating_profit_data,
                         shareholding_pattern=shareholding_data,
                         profit_loss=profit_loss_data,
-                        quarter_date=quarter_date
+                        quarter_date=quarter_date,
+                        months=months
                     )
                     
                     if success:
@@ -140,7 +142,8 @@ class StockScrapeDataService:
                         growth_operating_profit=growth_operating_profit_data,
                         shareholding_pattern=shareholding_data,
                         profit_loss=profit_loss_data,
-                        quarter_date=quarter_date
+                        quarter_date=quarter_date,
+                        months=months
                     )
                     
                     logger.info(f"Successfully created new scrape data for stock_id: {stock_id}, quarter: {quarter_date}")

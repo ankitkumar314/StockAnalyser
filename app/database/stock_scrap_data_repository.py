@@ -19,6 +19,7 @@ class StockScrapeDataRepository:
         growth_operating_profit: Optional[Dict] = None,
         shareholding_pattern: Optional[Dict] = None,
         profit_loss: Optional[Dict] = None,
+        months: Optional[Dict] = None,
         quarter_date = None
     ) -> StockScrapeData:
         """Create a new stock scrape data record."""
@@ -31,7 +32,8 @@ class StockScrapeDataRepository:
                 growth_operating_profit=growth_operating_profit,
                 shareholding_pattern=shareholding_pattern,
                 profit_loss=profit_loss,
-                quarter_date=quarter_date
+                quarter_date=quarter_date,
+                months=months
             )
             session.add(scrape_data)
             session.commit()
