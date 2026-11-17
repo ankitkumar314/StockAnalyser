@@ -13,5 +13,5 @@ def get_quote(ticker: str):
 
 ## give history of data foreach ticker here 
 @router.get("/history/{ticker}", response_model=HistoryResponse)
-def get_history(ticker: str, period: str = "1y", interval: str = "1d"):
+def get_history(ticker: str, period: str = "3y", interval: str = "1d"):
     return market_data_controller.get_history(ticker, period, interval)

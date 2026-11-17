@@ -37,37 +37,3 @@ def get_transcripts_by_ticker(ticker: str, limit: int = 10):
     """Get all transcripts for a ticker."""
     return transcript_controller.get_transcripts_by_ticker(ticker, limit)
 
-
-# @router.post("/generate-summary")
-# def generate_summary(request: SummaryGenerationRequest, background_tasks: BackgroundTasks):
-#     """
-#     Generate summary for a transcript using RAG system.
-    
-#     - Runs in background
-#     - Ingests PDF if doc_id not present
-#     - Queries RAG system with predefined questions
-#     - Creates structured summary
-#     - Updates transcript with summary_id and status
-#     """
-#     return transcript_controller.generate_summary(request, background_tasks)
-
-
-# @router.get("/summary/{ticker}", response_model=SummaryResponse)
-# def get_summary_by_ticker(ticker: str):
-#     """Get latest summary for a ticker."""
-#     return transcript_controller.get_summary_by_ticker(ticker)
-
-
-# @router.post("/batch-process", response_model=BatchProcessResponse)
-# def process_pending_transcripts(
-#     request: BatchProcessRequest,
-#     background_tasks: BackgroundTasks
-# ):
-#     """
-#     Process pending transcripts in batch.
-    
-#     - Finds all transcripts with status='pending'
-#     - Generates summaries for each in background
-#     - Returns immediately with processing status
-#     """
-#     return transcript_controller.process_pending_transcripts(request, background_tasks)
