@@ -10,6 +10,7 @@ from app.routes.portfolio_analysis_routes import router as portfolio_analysis_ro
 from app.routes.kite_redirect_routes import router as kite_redirect_router
 from app.routes.technical_analysis_routes import router as technical_analysis_router
 from app.routes.stock_report_routes import router as stock_report_router
+from app.routes.fundamental_analysis_routes import router as fundamental_analysis_router
 from app.database.connection import DatabaseConnection
 import logging
 
@@ -54,3 +55,4 @@ app.include_router(portfolio_analysis_router)
 app.include_router(kite_redirect_router)
 app.include_router(technical_analysis_router)
 app.include_router(stock_report_router)
+app.include_router(fundamental_analysis_router)
